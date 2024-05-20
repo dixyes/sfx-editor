@@ -10,6 +10,9 @@ use Unpacker\CommonPack;
 use Unpacker\Unpacker;
 use Unpacker\PackItem;
 
+/**
+ * IMAGE_OPTIONAL_HEADER64
+ */
 class COFFOptHeader64 implements CommonPack
 {
     use Unpacker;
