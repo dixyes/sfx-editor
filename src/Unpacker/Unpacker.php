@@ -45,7 +45,7 @@ trait Unpacker
         foreach ($packInfo as $offset => [$args, $prop]) {
             if ($cursor != $offset) {
                 throw new \Exception(sprintf(
-                    "Expected offset %d, got %d on unpacing %s::%s",
+                    "Expected offset %d, got %d on unpacking %s::%s",
                     $cursor,
                     $offset,
                     static::class,
@@ -58,7 +58,7 @@ trait Unpacker
                     preg_match('/^([a-zA-Z_][a-zA-Z0-9-_]*)\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $args['type'], $matches);
                     if (!$matches || count($matches) !== 3) {
                         throw new \Exception(sprintf(
-                            "Invalid type %s on unpacing %s::%s",
+                            "Invalid type %s on unpacking %s::%s",
                             $args['type'],
                             static::class,
                             $prop->getName(),
@@ -78,7 +78,7 @@ trait Unpacker
                     if ($size === "") {
                         if (!isset($args['size'])) {
                             throw new \Exception(sprintf(
-                                "Invalid type %s on unpacing %s::%s (no size specified)",
+                                "Invalid type %s on unpacking %s::%s (no size specified)",
                                 $args['type'],
                                 static::class,
                                 $prop->getName(),
@@ -89,7 +89,7 @@ trait Unpacker
                         $propName = substr($size, 7);
                         if (!isset($this->$propName)) {
                             throw new \Exception(sprintf(
-                                "Invalid type %s on unpacing %s::%s (property %s not found)",
+                                "Invalid type %s on unpacking %s::%s (property %s not found)",
                                 $args['type'],
                                 static::class,
                                 $prop->getName(),
@@ -114,7 +114,7 @@ trait Unpacker
                     preg_match('/^char\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $args['type'], $matches);
                     if (!$matches || count($matches) !== 2) {
                         throw new \Exception(sprintf(
-                            "Invalid type %s on unpacing %s::%s",
+                            "Invalid type %s on unpacking %s::%s",
                             $args['type'],
                             static::class,
                             $prop->getName(),
@@ -126,7 +126,7 @@ trait Unpacker
                     if ($size === "") {
                         if (!isset($args['size'])) {
                             throw new \Exception(sprintf(
-                                "Invalid type %s on unpacing %s::%s (no size specified)",
+                                "Invalid type %s on unpacking %s::%s (no size specified)",
                                 $args['type'],
                                 static::class,
                                 $prop->getName(),
@@ -137,7 +137,7 @@ trait Unpacker
                         $propName = substr($size, 7);
                         if (!isset($this->$propName)) {
                             throw new \Exception(sprintf(
-                                "Invalid type %s on unpacing %s::%s (property %s not found)",
+                                "Invalid type %s on unpacking %s::%s (property %s not found)",
                                 $args['type'],
                                 static::class,
                                 $prop->getName(),
@@ -179,7 +179,7 @@ trait Unpacker
                             break;
                         default:
                             throw new \Exception(sprintf(
-                                "Invalid type %s on unpacing %s::%s",
+                                "Invalid type %s on unpacking %s::%s",
                                 $args['type'],
                                 static::class,
                                 $prop->getName(),
@@ -195,7 +195,7 @@ trait Unpacker
                     break;
                 default:
                     throw new \Exception(sprintf(
-                        "Invalid type %s on unpacing %s::%s",
+                        "Invalid type %s on unpacking %s::%s",
                         $args['type'],
                         static::class,
                         $prop->getName(),
