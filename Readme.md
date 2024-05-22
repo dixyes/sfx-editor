@@ -1,6 +1,6 @@
 # sfx-editor
 
-this is sfx editor for micro, but also a (not very) pure PHP PE/ELF/Maco-O parser and builder.
+micro的sfx编辑器，也是不太纯PHP的PE ELF和Mach-O parser/builder
 
 ## WIP
 
@@ -8,15 +8,17 @@ this is sfx editor for micro, but also a (not very) pure PHP PE/ELF/Maco-O parse
 - [x] .rsrc parser/builder
 - [ ] ELF parser/builder
 - [ ] Mach-O parser/builder
+- [ ] 功能们
+  - [ ] 文件大小修正（修正upx后的sfx）
+  - [ ] 包裹payload（给数字签名用的）
+  - [ ] 替换图标
+  - [ ] Mach-O胖二进制（可能会做吧，感觉需求不大）
 - [ ] UI
   - [ ] CLI
   - [ ] GUI
-  - [ ] fix offset (for UPX things)
-  - [ ] wrap payload
-  - [ ] icon replace
-- [ ] packaging and CI things
+- [ ] 打包这个项目/CI
 
-## Usage
+## 用法
 
 TODO
 
