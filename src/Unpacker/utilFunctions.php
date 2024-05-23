@@ -267,10 +267,14 @@ function tokenizeCond(string $cond): array
                 ];
                 $i += $len - 1;
                 continue 2;
+            case '>>':
+            case '<<':
             case '>=':
             case '<=':
             case '!=':
             case '==':
+            case '||':
+            case '&&':
                 $tokens[] = [
                     'type' => $next2
                 ];

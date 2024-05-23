@@ -21,6 +21,7 @@ class ConditionParseTest extends TestCase
             ["true", ['val', true],],
             ['$data[1]', ["[]", ['var', '$data'], ['val', 1]]],
             ['$this->flags & 0x1000', ["&", ['prop', 'flags'], ['val', 0x1000]]],
+            ['0d00 || 0721 | 0b111 & 0x42 ^ ~12', ["&", ['prop', 'flags'], ['val', 0x1000]]],
         ];
 
         foreach ($testCases as [$cond, $astOrException]) {

@@ -56,7 +56,7 @@ final class ConditionParse
             return;
         }
         next($this->tokens);
-        // var_dump($this->token);
+        var_dump($this->token);
     }
 
     /**

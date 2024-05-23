@@ -6,16 +6,18 @@ namespace Unpacker;
 
 use PHPUnit\Framework\TestCase;
 
-class TestPackCond
+class TestPackCond implements CommonPack
 {
-    use Unpacker;
+    use Unpacker {
+        checkCond as public;
+    }
     use NullVerifier;
 
     public string $str;
 
-    public string $int1;
+    public int $int1;
 
-    public string $int2;
+    public int $int2;
 }
 
 class UnpackerTest extends TestCase

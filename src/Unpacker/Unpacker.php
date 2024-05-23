@@ -18,7 +18,7 @@ trait Unpacker
      * @param array<string> $condArr the conditions to be checked, all conditions must be true
      * @return boolean
      */
-    public function checkCond(array $condArr): bool
+    private function checkCond(array $condArr): bool
     {
         if (!$condArr) {
             // condition not set, use it
