@@ -115,10 +115,29 @@ function utf82utf16le(string $mbs): string
         $len = $ffi->MultiByteToWideChar(65001, 0, $mbs, strlen($mbs), null, 0);
         $ret = \FFI::new("char[" . (string)($len * 2) . "]");
         $len = $ffi->MultiByteToWideChar(65001, 0, $mbs, strlen($mbs), $ret, $len);
-        $ret = \FFI::string($ret, $len*2);
+        $ret = \FFI::string($ret, $len * 2);
 
         return $ret;
     } else {
         return _utf82utf16le($mbs);
+    }
+}
+
+function unicode2utf8(int $codepoint): string
+{
+    if ($codepoint < 0x80) {
+        return chr($codepoint);
+    } else if ($codepoint < 0x800) {
+        return chr(0xc0 | ($codepoint >> 6)) .
+            chr(0x80 | ($codepoint & 0x3f));
+    } else if ($codepoint < 0x10000) {
+        return chr(0xe0 | ($codepoint >> 12)) .
+            chr(0x80 | (($codepoint >> 6) & 0x3f)) .
+            chr(0x80 | ($codepoint & 0x3f));
+    } else {
+        return chr(0xf0 | ($codepoint >> 18)) .
+            chr(0x80 | (($codepoint >> 12) & 0x3f)) .
+            chr(0x80 | (($codepoint >> 6) & 0x3f)) .
+            chr(0x80 | ($codepoint & 0x3f));
     }
 }

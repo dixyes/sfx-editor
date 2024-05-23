@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Unpacker;
 
+require_once __DIR__ . '/utilFunctions.php';
+
 use Reflection;
 use ReflectionClass;
 use ReflectionNamedType;
@@ -11,7 +13,26 @@ use ReflectionNamedType;
 trait Unpacker
 {
     /**
-     * @return array<int, array{0: array{'offset': int, 'type': string, 'size'?: int, 'if'?: string}, 1:\ReflectionProperty}>
+     * parse and check condtion on $this
+     *
+     * @param array<string> $condArr the conditions to be checked, all conditions must be true
+     * @return boolean
+     */
+    public function checkCond(array $condArr): bool
+    {
+        if (!$condArr) {
+            // condition not set, use it
+            return true;
+        }
+
+        foreach ($condArr as $cond) {
+            
+        }
+        return true;
+    }
+
+    /**
+     * @return array<array{0: array{'offset': int, 'type': string, 'size'?: int, 'if'?: string}, 1:\ReflectionProperty}>
      */
     public static function getPackInfo(): array
     {
@@ -21,12 +42,15 @@ trait Unpacker
         foreach ($properties as $property) {
             $attrs = $property->getAttributes(PackItem::class);
             if (count($attrs) === 0) {
+                // not a pack item
                 continue;
             }
-            $attr = $attrs[0];
-            $args = $attr->getArguments();
-            $packInfo[$args['offset']] = [
-                $args,
+            $attrArgs = [];
+            foreach ($attrs as $attr) {
+                $attrArgs[] = $attr->getArguments();
+            }
+            $packInfo[] = [
+                $attrArgs,
                 $property,
             ];
         }
@@ -37,7 +61,7 @@ trait Unpacker
 
     public function unpack(string $remaining): int
     {
-        // $packInfo [offset => args,reflectProperty]
+        // $packInfo [offset => attrArgs,reflectProperty]
         $packInfo = static::getPackInfo();
 
         $cursor = 0;
