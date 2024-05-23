@@ -169,7 +169,6 @@ function tokenizeCond(string $cond): array
         $int = 0;
         switch ($next2) {
             case '0b':
-                $base = 2;
                 for ($len = 2; $i + $len < strlen($cond); $len++) {
                     $char = $cond[$i + $len];
                     if ($char !== '0' && $char !== '1') {
@@ -191,7 +190,6 @@ function tokenizeCond(string $cond): array
                 }
                 goto num;
             case '0o':
-                $base = 8;
                 for ($len = 2; $i + $len < strlen($cond); $len++) {
                     $char = $cond[$i + $len];
                     $ord = ord($char);
@@ -214,7 +212,6 @@ function tokenizeCond(string $cond): array
                 }
                 goto num;
             case '0d':
-                $base = 10;
                 for ($len = 2; $i + $len < strlen($cond); $len++) {
                     $char = $cond[$i + $len];
                     if (!ctype_digit($char)) {
