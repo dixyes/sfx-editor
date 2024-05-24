@@ -41,4 +41,7 @@ class SegmentCommand32 implements CommonPack
     public int $nSections;
     #[PackItem(offset: 0x34, type: 'uint32')]
     public int $flags;
+
+    #[PackItem(offset: 0x38, type: 'SegmentSection32[]', size: '$this->nSections')]
+    public array $sections;
 }
