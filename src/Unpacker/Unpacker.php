@@ -32,6 +32,9 @@ trait Unpacker
                  *      'args'?: array<mixed>,
                  * } $attrArg */
                 $attrArg = $attr->getArguments();
+                if (isset($attrArg['cond']) && is_string($attrArg['cond'])) {
+                    $attrArg['cond'] = [$attrArg['cond']];
+                }
                 $packInfo = [
                     $attrArg,
                     $property,
@@ -50,8 +53,8 @@ trait Unpacker
 
         $cursor = 0;
 
-        foreach ($packItems as $packInfos) {
-            foreach ($packInfos as $offset => [$arg, $prop]) {
+        foreach ($packItems as $offset => $packInfos) {
+            foreach ($packInfos as [$arg, $prop]) {
                 if (isset($arg['cond'])) {
                     $useThis = true;
                     foreach ($arg['cond'] as $cond) {
@@ -63,7 +66,7 @@ trait Unpacker
                             // '$off' => $cursor,
                             '$this' => $this,
                         ]);
-                        var_dump($condValue, $ast, $cond, $remaining, $cursor, $arg['cond']);
+                        // var_dump($condValue, $ast, $cond, $remaining, $cursor, $arg['cond']);
                         if (!$condValue) {
                             $useThis = false;
                             break;
@@ -76,16 +79,6 @@ trait Unpacker
 
                 $propName = $prop->getName();
 
-                $offset = $arg['offset'];
-                if (is_string($offset)) {
-                    $ast = ConditionParse::parse($offset);
-                    $offset = executeAST($ast, [
-                        '$data' => $remaining,
-                        // '$rem' => substr($remaining, $cursor), 感觉用不到，先注释了
-                        '$off' => $cursor,
-                        '$this' => $this,
-                    ]);
-                }
                 if (!is_int($offset)) {
                     throw new \Exception(sprintf(
                         "Invalid offset %s on unpacking %s::%s",
@@ -104,6 +97,7 @@ trait Unpacker
                         $propName,
                     ));
                 }
+                // printf("Unpacking %s::%s at offset %d\n", static::class, $propName, $cursor);
 
                 switch (true) {
                     case $prop->getType()->getName() === "array":
@@ -138,6 +132,20 @@ trait Unpacker
                                 ));
                             }
                             $length = $arg['size'];
+                            if (is_string($length)) {
+                                $ast = ConditionParse::parse($length);
+                                $length = executeAST($ast, [
+                                    '$this' => $this,
+                                ]);
+                            }
+                            if (!is_int($length)) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (size is not int)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                ));
+                            }
                         } else if (str_starts_with($size, '$this->')) {
                             $typePropName = substr($size, 7);
                             if (!isset($this->$typePropName)) {
@@ -186,6 +194,20 @@ trait Unpacker
                                 ));
                             }
                             $length = $arg['size'];
+                            if (is_string($length)) {
+                                $ast = ConditionParse::parse($length);
+                                $length = executeAST($ast, [
+                                    '$this' => $this,
+                                ]);
+                            }
+                            if (!is_int($length)) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (size is not int)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                ));
+                            }
                         } else if (str_starts_with($size, '$this->')) {
                             $typePropName = substr($size, 7);
                             if (!isset($this->$typePropName)) {
@@ -203,6 +225,7 @@ trait Unpacker
                         }
 
                         if ($cursor + $length > strlen($remaining)) {
+                            // var_dump($cursor, $length, strlen($remaining));
                             throw new \Exception(sprintf(
                                 "Not enough data on unpacking %s::%s",
                                 static::class,
@@ -271,6 +294,7 @@ trait Unpacker
                         ));
                 }
 
+                // var_dump($propName, $value);
                 $prop->setValue($this, $value);
             }
         }
@@ -296,7 +320,7 @@ trait Unpacker
                         $condValue = executeAST($ast, [
                             '$this' => $this,
                         ]);
-                        var_dump($condValue, $ast, $cond, $arg['cond']);
+                        // var_dump($condValue, $ast, $cond, $arg['cond']);
                         if (!$condValue) {
                             $useThis = false;
                             break;

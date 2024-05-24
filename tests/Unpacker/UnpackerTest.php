@@ -124,6 +124,17 @@ class TestSizeNotFoundOnArray implements CommonPack
     public array $array;
 }
 
+class TestSizeNotIntOnArray implements CommonPack
+{
+    use Unpacker;
+    use NullVerifier;
+
+    public string $str = 'a';
+
+    #[PackItem(offset: 0x00, type: 'TestPackItem[]', size: '$this->str')]
+    public array $array;
+}
+
 class TestCharArrNotaionOnNotString implements CommonPack
 {
     use Unpacker;
@@ -140,6 +151,17 @@ class TestSizeNotFoundOnString implements CommonPack
 
     #[PackItem(offset: 0x00, type: 'char[]')]
     public array $array;
+}
+
+class TestSizeNotIntOnString implements CommonPack
+{
+    use Unpacker;
+    use NullVerifier;
+
+    public string $str = 'a';
+
+    #[PackItem(offset: 0x00, type: 'char[]', size: '$this->str')]
+    public string $array;
 }
 
 class TestSizeNotFoundOnString2 implements CommonPack
@@ -211,6 +233,18 @@ class TestConditionalParse implements CommonPack
     #[PackItem(offset: 0x1c, type: 'uint32', cond: ['!($this->cpuType & 0x01000000)'])]
     #[PackItem(offset: 0x20, type: 'uint32', cond: ['$this->cpuType & 0x01000000'])]
     public int $loadCommand; // fake
+}
+
+class TestVaribleSizeString implements CommonPack
+{
+    use Unpacker;
+    use NullVerifier;
+
+    #[PackItem(offset: 0x00, type: 'uint32')]
+    public int $size;
+
+    #[PackItem(offset: 0x04, type: 'char[]', size: '$this->size - 4')]
+    public string $str;
 }
 
 class UnpackerTest extends TestCase
@@ -390,13 +424,25 @@ class UnpackerTest extends TestCase
         $this->checkTestCases($testCases, TestConditionalParse::class);
     }
 
+    public function testVaribleSizeString(): void
+    {
+        $testCases = [
+            // [data, expect]
+            ["\x0c\x00\x00\x0012345678", ['size' => 12, 'str' => '12345678'], 12],
+            ["\x04\x00\x00\x001234", ['size' => 4, 'str' => ''], 4],
+            ["\x04\x00\x00\x00", ['size' => 4, 'str' => ''], 4],
+        ];
+
+        $this->checkTestCases($testCases, TestVaribleSizeString::class);
+    }
+
     private function checkTestCases(array $testCases, string $className): void
     {
         foreach ($testCases as $i => [$data, $expect, $length]) {
             if (is_array($expect)) {
                 $unpacker = new $className();
                 $parsed = $unpacker->unpack($data);
-                var_dump(bin2hex($data));
+                // var_dump(bin2hex($data));
                 $this->assertEquals($length, $parsed, "Checking $i with parsed length");
                 foreach ($expect as $key => $value) {
                     $this->assertEquals($value, $unpacker->$key, "Checking $i with $key");
