@@ -127,7 +127,7 @@ class FunctionTest extends TestCase
                 ['type' => '=='],
                 ['type' => 'number', 'literal' => '1', 'value' => 1],
             ]],
-            ['$rem[1+2- 3*0x1] != !false',[
+            ['$rem[1+2- 3*0x1] != !false', [
                 ['type' => '$rem'],
                 ['type' => '['],
                 ['type' => 'number', 'literal' => '1', 'value' => 1],
@@ -142,7 +142,7 @@ class FunctionTest extends TestCase
                 ['type' => '!'],
                 ['type' => 'false'],
             ]],
-            ['$off - true == ~ (0b10 | 0o721 & 0d00)',[
+            ['$off - true == ~ (0b10 | 0o721 & 0d00)', [
                 ['type' => '$off'],
                 ['type' => '-'],
                 ['type' => 'true'],
@@ -211,6 +211,99 @@ class FunctionTest extends TestCase
                 } catch (\Exception $e) {
                     $this->assertStringStartsWith($tokenOrExcept, $e->getMessage());
                 }
+            }
+        }
+    }
+
+    public function testExecuteAST(): void
+    {
+        $context = [
+            '$intvar' => 42,
+            '$strvar' => 'abcd',
+            '$arr' => [
+                'some' => 'efgh',
+            ],
+            '$this' => new class{
+                public int $flags = 0x1000;
+            },
+        ];
+
+        $testCases = [
+            // [ast, result, except]
+            [['val', null], null, null],
+            [['val', 1], 1, null],
+            [['var', '$intvar'], 42, null],
+            [['var', '$notexistvar'], null, "variable not found"],
+            [['prop', 'flags'], 0x1000, null],
+            [['prop', 'notexist'], null, '$this or property not found'],
+            [['[]', ['var', '$strvar'], ['val', 1]], 'b', null],
+            [['[]', ['var', '$arr'], ['val', 'some']], 'efgh', null],
+            [['!', ['val', false]], true, null],
+            [['!', ['val', "cafebabe"]], false, null],
+            [['!', ['var', '$intvar']], false, null],
+            [['~', ['var', '$intvar']], ~42, null],
+            [['~', ['val', '$intvar']], null, 'bitwise not ~ can only apply to int'],
+            [['*', ['val', 6], ['val', 7]], 42, null],
+            [['/', ['val', 6], ['val', 7]], 0, null],
+            [['%', ['val', 6], ['val', 7]], 6 % 7, null],
+            [['+', ['val', 6], ['val', 7]], 6 + 7, null],
+            [['-', ['val', 6], ['val', 7]], 6 - 7, null],
+            [['<<', ['val', 6], ['val', 7]], 6 << 7, null],
+            [['>>', ['val', 6], ['val', 7]], 6 >> 7, null],
+            [['==', ['val', 6], ['val', 7]], 6 === 7, null],
+            [['==', ['val', 6], ['val', '6']], 6 === '6', null],
+            [['==', ['val', 6], ['val', '7']], 6 === '7', null],
+            [['==', ['val', '6'], ['val', '6']], '6' === '6', null],
+            [['!=', ['val', 6], ['val', 7]], 6 !== 7, null],
+            [['!=', ['val', 6], ['val', '6']], 6 !== '6', null],
+            [['!=', ['val', 6], ['val', '7']], 6 !== '7', null],
+            [['!=', ['val', '6'], ['val', '6']], '6' !== '6', null],
+            [['<', ['val', 6], ['val', 7]], 6 < 7, null],
+            [['<=', ['val', 6], ['val', 7]], 6 <= 7, null],
+            [['>', ['val', 6], ['val', 7]], 6 > 7, null],
+            [['>=', ['val', 6], ['val', 7]], 6 >= 7, null],
+            [['&', ['val', 6], ['val', 7]], 6 & 7, null],
+            [['&', ['val', '6'], ['val', 7]], null, 'bitwise and & left can only be int'],
+            [['&', ['val', 6], ['val', '7']], null, 'bitwise and & right can only be int'],
+            [['|', ['val', 6], ['val', 7]], 6 | 7, null],
+            [['|', ['val', '6'], ['val', 7]], null, 'bitwise or | left can only be int'],
+            [['|', ['val', 6], ['val', '7']], null, 'bitwise or | right can only be int'],
+            [['^', ['val', 6], ['val', 7]], 6 ^ 7, null],
+            [['^', ['val', '6'], ['val', 7]], null, 'bitwise xor ^ left can only be int'],
+            [['^', ['val', 6], ['val', '7']], null, 'bitwise xor ^ right can only be int'],
+            [['&&', ['val', true], ['val', false]], false, null],
+            [['&&', ['val', true], ['val', true]], true, null],
+            [['&&', ['val', false], ['val', true]], false, null],
+            [['&&', ['val', false], ['val', false]], false, null],
+            [['||', ['val', true], ['val', false]], true, null],
+            [['||', ['val', true], ['val', true]], true, null],
+            [['||', ['val', false], ['val', true]], true, null],
+            [['||', ['val', false], ['val', false]], false, null],
+            [['&&', ['val', true], ['val', 1]], 1, null],
+            [['&&', ['val', 1], ['val', 2]], 2, null],
+            [['&&', ['val', 0], ['val', true]], 0, null],
+            [['&&', ['val', false], ['val', 0]], false, null],
+            [['||', ['val', true], ['val', 1]], true, null],
+            [['||', ['val', 1], ['val', 2]], 1, null],
+            [['||', ['val', 0], ['val', true]], true, null],
+            [['||', ['val', false], ['val', 0]], 0, null],
+            // question mark like syntax "a && 1 || 2"
+            [['||', ['&&', ['val', 0], ['val', 1]], ['val', 2]], 2, null],
+            [['||', ['&&', ['val', true], ['val', 1]], ['val', 2]], 1, null], 
+        ];
+
+        foreach ($testCases as $testCase) {
+            [$ast, $result, $except] = $testCase;
+            if ($except !== null) {
+                try {
+                    $ret = executeAST($ast, $context);
+                    $this->fail("expected exception, but got $ret");
+                } catch (\Exception $e) {
+                    $this->assertStringStartsWith($except, $e->getMessage());
+                }
+            } else {
+                $ret = executeAST($ast, $context);
+                $this->assertEquals($result, $ret, "Failed for " . json_encode($ast));
             }
         }
     }

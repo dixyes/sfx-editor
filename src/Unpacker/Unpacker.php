@@ -12,31 +12,9 @@ use ReflectionNamedType;
 
 trait Unpacker
 {
-    /**
-     * parse and check condtion on $this
-     *
-     * @param array<string> $condArr the conditions to be checked, all conditions must be true
-     * @return boolean
-     */
-    private function checkCond(array $condArr): bool
+    public static function getPackItems(): array
     {
-        if (!$condArr) {
-            // condition not set, use it
-            return true;
-        }
-
-        foreach ($condArr as $cond) {
-            
-        }
-        return true;
-    }
-
-    /**
-     * @return array<array{0: array{'offset': int, 'type': string, 'size'?: int, 'if'?: string}, 1:\ReflectionProperty}>
-     */
-    public static function getPackInfo(): array
-    {
-        $packInfo = [];
+        $packItems = [];
         $thisClass = new ReflectionClass(static::class);
         $properties = $thisClass->getProperties();
         foreach ($properties as $property) {
@@ -45,188 +23,256 @@ trait Unpacker
                 // not a pack item
                 continue;
             }
-            $attrArgs = [];
             foreach ($attrs as $attr) {
-                $attrArgs[] = $attr->getArguments();
+                /** @var array{
+                 *      'offset': int,
+                 *      'type': string,
+                 *      'size'?: int,
+                 *      'cond'?: array<string>,
+                 *      'args'?: array<mixed>,
+                 * } $attrArg */
+                $attrArg = $attr->getArguments();
+                $packInfo = [
+                    $attrArg,
+                    $property,
+                ];
+                $packItems[$attrArg['offset']][] = $packInfo;
             }
-            $packInfo[] = [
-                $attrArgs,
-                $property,
-            ];
         }
-        return $packInfo;
+        return $packItems;
     }
 
     // public readonly string $raw;
 
     public function unpack(string $remaining): int
     {
-        // $packInfo [offset => attrArgs,reflectProperty]
-        $packInfo = static::getPackInfo();
+        $packItems = static::getPackItems();
 
         $cursor = 0;
 
-        foreach ($packInfo as $offset => [$args, $prop]) {
-            if ($cursor != $offset) {
-                throw new \Exception(sprintf(
-                    "Expected offset %d, got %d on unpacking %s::%s",
-                    $cursor,
-                    $offset,
-                    static::class,
-                    $prop->getName(),
-                ));
-            }
-
-            switch (true) {
-                case $prop->getType()->getName() === "array":
-                    preg_match('/^([a-zA-Z_][a-zA-Z0-9-_]*)\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $args['type'], $matches);
-                    if (!$matches || count($matches) !== 3) {
-                        throw new \Exception(sprintf(
-                            "Invalid type %s on unpacking %s::%s",
-                            $args['type'],
-                            static::class,
-                            $prop->getName(),
-                        ));
-                    }
-
-                    $type = $matches[1];
-                    $size = $matches[2];
-
-                    if (!str_starts_with($type, '\\')) {
-                        $namespace = substr('\\' . static::class, 0, strrpos('\\' . static::class, '\\'));
-                        $type = $namespace . '\\' . $type;
-                    }
-                    $class = new ReflectionClass($type);
-
-                    // var_dump($size, str_starts_with($size, '$this->'));
-                    if ($size === "") {
-                        if (!isset($args['size'])) {
-                            throw new \Exception(sprintf(
-                                "Invalid type %s on unpacking %s::%s (no size specified)",
-                                $args['type'],
-                                static::class,
-                                $prop->getName(),
-                            ));
+        foreach ($packItems as $packInfos) {
+            foreach ($packInfos as $offset => [$arg, $prop]) {
+                if (isset($arg['cond'])) {
+                    $useThis = true;
+                    foreach ($arg['cond'] as $cond) {
+                        $ast = ConditionParse::parse($cond);
+                        $condValue = executeAST($ast, [
+                            // 感觉用不到，先注释了
+                            // '$data' => $remaining,
+                            // '$rem' => substr($remaining, $cursor),
+                            // '$off' => $cursor,
+                            '$this' => $this,
+                        ]);
+                        var_dump($condValue, $ast, $cond, $remaining, $cursor, $arg['cond']);
+                        if (!$condValue) {
+                            $useThis = false;
+                            break;
                         }
-                        $length = $args['size'];
-                    } else if (str_starts_with($size, '$this->')) {
-                        $propName = substr($size, 7);
-                        if (!isset($this->$propName)) {
-                            throw new \Exception(sprintf(
-                                "Invalid type %s on unpacking %s::%s (property %s not found)",
-                                $args['type'],
-                                static::class,
-                                $prop->getName(),
-                                $propName,
-                            ));
-                        }
-                        $length = $this->$propName;
-                    } else {
-                        $length = intval($size, 0);
                     }
-
-                    $value = [];
-                    for ($i = 0; $i < $length; $i++) {
-                        $obj = $class->newInstanceArgs($args['args'] ?? []);
-                        $consumed = $obj->unpack(substr($remaining, $cursor));
-                        $value[] = $obj;
-                        $cursor += $consumed;
+                    if (!$useThis) {
+                        continue;
                     }
+                }
 
-                    break;
-                case $prop->getType()->getName() === "string":
-                    preg_match('/^char\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $args['type'], $matches);
-                    if (!$matches || count($matches) !== 2) {
-                        throw new \Exception(sprintf(
-                            "Invalid type %s on unpacking %s::%s",
-                            $args['type'],
-                            static::class,
-                            $prop->getName(),
-                        ));
-                    }
+                $propName = $prop->getName();
 
-                    $size = $matches[1];
+                $offset = $arg['offset'];
+                if (is_string($offset)) {
+                    $ast = ConditionParse::parse($offset);
+                    $offset = executeAST($ast, [
+                        '$data' => $remaining,
+                        // '$rem' => substr($remaining, $cursor), 感觉用不到，先注释了
+                        '$off' => $cursor,
+                        '$this' => $this,
+                    ]);
+                }
+                if (!is_int($offset)) {
+                    throw new \Exception(sprintf(
+                        "Invalid offset %s on unpacking %s::%s",
+                        $offset,
+                        static::class,
+                        $propName,
+                    ));
+                }
 
-                    if ($size === "") {
-                        if (!isset($args['size'])) {
-                            throw new \Exception(sprintf(
-                                "Invalid type %s on unpacking %s::%s (no size specified)",
-                                $args['type'],
-                                static::class,
-                                $prop->getName(),
-                            ));
-                        }
-                        $length = $args['size'];
-                    } else if (str_starts_with($size, '$this->')) {
-                        $propName = substr($size, 7);
-                        if (!isset($this->$propName)) {
-                            throw new \Exception(sprintf(
-                                "Invalid type %s on unpacking %s::%s (property %s not found)",
-                                $args['type'],
-                                static::class,
-                                $prop->getName(),
-                                $propName,
-                            ));
-                        }
-                        $length = $this->$propName;
-                    } else {
-                        $length = intval($size, 0);
-                    }
-
-                    $value = substr(
-                        $remaining,
+                if ($cursor != $offset) {
+                    throw new \Exception(sprintf(
+                        "Expected offset %d, got %d on unpacking %s::%s",
                         $cursor,
-                        $length,
-                    );
+                        $offset,
+                        static::class,
+                        $propName,
+                    ));
+                }
 
-                    $cursor += $length;
-                    break;
-                case $prop->getType()->getName() === "int":
-                    $size = 0;
-                    $unpackArg = "";
-                    switch ($args['type']) {
-                        case "uint8":
-                            $size = 1;
-                            $unpackArg = "C";
-                            break;
-                        case "uint16":
-                            $size = 2;
-                            $unpackArg = "v";
-                            break;
-                        case "uint32":
-                            $size = 4;
-                            $unpackArg = "V";
-                            break;
-                        case "uint64":
-                            $size = 8;
-                            $unpackArg = "P";
-                            break;
-                        default:
+                switch (true) {
+                    case $prop->getType()->getName() === "array":
+                        // TODO: 拿PEG/递归下降parser来搞下type的解析
+                        preg_match('/^([a-zA-Z_][a-zA-Z0-9-_]*)\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $arg['type'], $matches);
+                        if (!$matches || count($matches) !== 3) {
+                            throw new \Exception(sprintf(
+                                "Invalid property type %s on unpacking %s::%s",
+                                $arg['type'],
+                                static::class,
+                                $propName,
+                            ));
+                        }
+
+                        $type = $matches[1];
+                        $size = $matches[2];
+
+                        if (!str_starts_with($type, '\\')) {
+                            $namespace = substr('\\' . static::class, 0, strrpos('\\' . static::class, '\\'));
+                            $type = $namespace . '\\' . $type;
+                        }
+                        $class = new ReflectionClass($type);
+
+                        // var_dump($size, str_starts_with($size, '$this->'));
+                        if ($size === "") {
+                            if (!isset($arg['size'])) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (no size specified)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                ));
+                            }
+                            $length = $arg['size'];
+                        } else if (str_starts_with($size, '$this->')) {
+                            $typePropName = substr($size, 7);
+                            if (!isset($this->$typePropName)) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (property %s not found)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                    $typePropName,
+                                ));
+                            }
+                            $length = $this->$typePropName;
+                        } else {
+                            $length = intval($size, 0);
+                        }
+
+                        $value = [];
+                        for ($i = 0; $i < $length; $i++) {
+                            $obj = $class->newInstanceArgs($arg['args'] ?? []);
+                            $consumed = $obj->unpack(substr($remaining, $cursor));
+                            $value[] = $obj;
+                            $cursor += $consumed;
+                        }
+
+                        break;
+                    case $prop->getType()->getName() === "string":
+                        preg_match('/^char\[(\d*|0x[0-9a-f]+|\$this->[a-zA-Z_][a-zA-Z0-9-_]*)\]$/', $arg['type'], $matches);
+                        if (!$matches || count($matches) !== 2) {
                             throw new \Exception(sprintf(
                                 "Invalid type %s on unpacking %s::%s",
-                                $args['type'],
+                                $arg['type'],
                                 static::class,
-                                $prop->getName(),
+                                $propName,
                             ));
-                    }
+                        }
 
-                    $value = unpack(
-                        $unpackArg,
-                        substr($remaining, $cursor, $size),
-                    )[1];
+                        $size = $matches[1];
 
-                    $cursor += $size;
-                    break;
-                default:
-                    throw new \Exception(sprintf(
-                        "Invalid type %s on unpacking %s::%s",
-                        $args['type'],
-                        static::class,
-                        $prop->getName(),
-                    ));
+                        if ($size === "") {
+                            if (!isset($arg['size'])) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (no size specified)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                ));
+                            }
+                            $length = $arg['size'];
+                        } else if (str_starts_with($size, '$this->')) {
+                            $typePropName = substr($size, 7);
+                            if (!isset($this->$typePropName)) {
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s (property %s not found)",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                    $typePropName,
+                                ));
+                            }
+                            $length = $this->$typePropName;
+                        } else {
+                            $length = intval($size, 0);
+                        }
+
+                        if ($cursor + $length > strlen($remaining)) {
+                            throw new \Exception(sprintf(
+                                "Not enough data on unpacking %s::%s",
+                                static::class,
+                                $propName,
+                            ));
+                        }
+
+                        $value = substr(
+                            $remaining,
+                            $cursor,
+                            $length,
+                        );
+
+                        $cursor += $length;
+                        break;
+                    case $prop->getType()->getName() === "int":
+                        $size = 0;
+                        $unpackArg = "";
+                        switch ($arg['type']) {
+                            case "uint8":
+                                $size = 1;
+                                $unpackArg = "C";
+                                break;
+                            case "uint16":
+                                $size = 2;
+                                $unpackArg = "v";
+                                break;
+                            case "uint32":
+                                $size = 4;
+                                $unpackArg = "V";
+                                break;
+                            case "uint64":
+                                $size = 8;
+                                $unpackArg = "P";
+                                break;
+                            default:
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on unpacking %s::%s",
+                                    $arg['type'],
+                                    static::class,
+                                    $propName,
+                                ));
+                        }
+
+                        if ($cursor + $size > strlen($remaining)) {
+                            throw new \Exception(sprintf(
+                                "Not enough data on unpacking %s::%s",
+                                static::class,
+                                $propName,
+                            ));
+                        }
+
+                        $value = unpack(
+                            $unpackArg,
+                            substr($remaining, $cursor, $size),
+                        )[1];
+
+                        $cursor += $size;
+                        break;
+                    default:
+                        throw new \Exception(sprintf(
+                            "Invalid type %s on unpacking %s::%s",
+                            $arg['type'],
+                            static::class,
+                            $propName,
+                        ));
+                }
+
+                $prop->setValue($this, $value);
             }
-
-            $prop->setValue($this, $value);
         }
 
         // $this->raw = substr($remaining, 0, $cursor);
@@ -236,57 +282,77 @@ trait Unpacker
 
     public function pack(): string
     {
-        $packInfo = static::getPackInfo();
+        $packItems = static::getPackItems();
 
         $packArgs = "";
         $values = [];
 
-        foreach ($packInfo as $offset => [$args, $prop]) {
-            $value = $prop->getValue($this);
-            switch (true) {
-                case $prop->getType()->getName() === "array":
-                    $content = "";
-                    foreach ($value as $item) {
-                        $content .= $item->pack();
+        foreach ($packItems as $packInfos) {
+            foreach ($packInfos as [$arg, $prop]) {
+                if (isset($arg['cond'])) {
+                    $useThis = true;
+                    foreach ($arg['cond'] as $cond) {
+                        $ast = ConditionParse::parse($cond);
+                        $condValue = executeAST($ast, [
+                            '$this' => $this,
+                        ]);
+                        var_dump($condValue, $ast, $cond, $arg['cond']);
+                        if (!$condValue) {
+                            $useThis = false;
+                            break;
+                        }
                     }
-                    $packArgs .= sprintf("a%d", strlen($content));
-                    $value = $content;
-                    break;
-                case $prop->getType()->getName() === "string":
-                    $packArgs .= sprintf("a%d", strlen($value));
-                    break;
-                case $prop->getType()->getName() === "int":
-                    switch ($args['type']) {
-                        case "uint8":
-                            $packArgs .= "C";
-                            break;
-                        case "uint16":
-                            $packArgs .= "v";
-                            break;
-                        case "uint32":
-                            $packArgs .= "V";
-                            break;
-                        case "uint64":
-                            $packArgs .= "P";
-                            break;
-                        default:
-                            throw new \Exception(sprintf(
-                                "Invalid type %s on packing %s::%s",
-                                $args['type'],
-                                static::class,
-                                $prop->getName(),
-                            ));
+                    if (!$useThis) {
+                        continue;
                     }
-                    break;
-                default:
-                    throw new \Exception(sprintf(
-                        "Invalid type %s on packing %s::%s",
-                        $args['type'],
-                        static::class,
-                        $prop->getName(),
-                    ));
+                }
+
+                $value = $prop->getValue($this);
+                switch (true) {
+                    case $prop->getType()->getName() === "array":
+                        $content = "";
+                        foreach ($value as $item) {
+                            $content .= $item->pack();
+                        }
+                        $packArgs .= sprintf("a%d", strlen($content));
+                        $value = $content;
+                        break;
+                    case $prop->getType()->getName() === "string":
+                        $packArgs .= sprintf("a%d", strlen($value));
+                        break;
+                    case $prop->getType()->getName() === "int":
+                        switch ($arg['type']) {
+                            case "uint8":
+                                $packArgs .= "C";
+                                break;
+                            case "uint16":
+                                $packArgs .= "v";
+                                break;
+                            case "uint32":
+                                $packArgs .= "V";
+                                break;
+                            case "uint64":
+                                $packArgs .= "P";
+                                break;
+                            default:
+                                throw new \Exception(sprintf(
+                                    "Invalid type %s on packing %s::%s",
+                                    $arg['type'],
+                                    static::class,
+                                    $prop->getName(),
+                                ));
+                        }
+                        break;
+                    default:
+                        throw new \Exception(sprintf(
+                            "Invalid type %s on packing %s::%s",
+                            $arg['type'],
+                            static::class,
+                            $prop->getName(),
+                        ));
+                }
+                $values[] = $value;
             }
-            $values[] = $value;
         }
         return pack($packArgs, ...$values);
     }

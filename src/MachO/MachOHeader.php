@@ -11,9 +11,7 @@ use Unpacker\NullVerifier;
 
 class MachOHeader implements CommonPack
 {
-    use Unpacker {
-        unpack as private _unpack;
-    }
+    use Unpacker;
     use NullVerifier;
 
     const CPU_TYPE_X86 = 0x07;

@@ -336,3 +336,131 @@ function tokenizeCond(string $cond): array
     }
     return $tokens;
 }
+
+function executeAST(array $ast, array $context): mixed
+{
+    $type = $ast[0];
+    switch ($type) {
+        case 'val':
+            return $ast[1];
+        case 'var':
+            if (!isset($context[$ast[1]])) {
+                throw new \Exception('variable not found: ' . $ast[1]);
+            }
+            return $context[$ast[1]];
+        case 'prop':
+            if (
+                !isset($context['$this']) ||
+                !isset($context['$this']->{$ast[1]})
+            ) {
+                throw new \Exception('$this or property not found: $this->' . $ast[1]);
+            }
+            return $context['$this']->{$ast[1]};
+        case '[]':
+            $value = executeAST($ast[1], $context);
+            $expr = executeAST($ast[2], $context);
+            if (!isset($value[$expr])) {
+                throw new \Exception('index not found: ' . $expr);
+            }
+            return $value[$expr];
+        case '!':
+            return !executeAST($ast[1], $context);
+        case '~':
+            $value = executeAST($ast[1], $context);
+            if (!is_int($value)) {
+                throw new \Exception('bitwise not ~ can only apply to int');
+            }
+            return ~$value;
+        case '*':
+            return executeAST($ast[1], $context) * executeAST($ast[2], $context);
+        case '/':
+            return intdiv(executeAST($ast[1], $context), executeAST($ast[2], $context));
+        case '%':
+            return executeAST($ast[1], $context) % executeAST($ast[2], $context);
+        case '+':
+            return executeAST($ast[1], $context) + executeAST($ast[2], $context);
+        case '-':
+            return executeAST($ast[1], $context) - executeAST($ast[2], $context);
+        case '<<':
+            $left = executeAST($ast[1], $context);
+            if (!is_int($left)) {
+                throw new \Exception('bitwise shift << left can only be int');
+            }
+            $right = executeAST($ast[2], $context);
+            if (!is_int($right)) {
+                throw new \Exception('bitwise shift << right can only be int');
+            }
+            return $left << $right;
+        case '>>':
+            $left = executeAST($ast[1], $context);
+            if (!is_int($left)) {
+                throw new \Exception('bitwise shift >> left can only be int');
+            }
+            $right = executeAST($ast[2], $context);
+            if (!is_int($right)) {
+                throw new \Exception('bitwise shift >> right can only be int');
+            }
+            return $left >> $right;
+        case '==':
+            // always strict
+            return executeAST($ast[1], $context) === executeAST($ast[2], $context);
+        case '!=':
+            // always strict
+            return executeAST($ast[1], $context) !== executeAST($ast[2], $context);
+        case '<':
+            return executeAST($ast[1], $context) < executeAST($ast[2], $context);
+        case '<=':
+            return executeAST($ast[1], $context) <= executeAST($ast[2], $context);
+        case '>':
+            return executeAST($ast[1], $context) > executeAST($ast[2], $context);
+        case '>=':
+            return executeAST($ast[1], $context) >= executeAST($ast[2], $context);
+        case '&':
+            $left = executeAST($ast[1], $context);
+            if (!is_int($left)) {
+                throw new \Exception('bitwise and & left can only be int');
+            }
+            $right = executeAST($ast[2], $context);
+            if (!is_int($right)) {
+                throw new \Exception('bitwise and & right can only be int');
+            }
+            return $left & $right;
+        case '|':
+            $left = executeAST($ast[1], $context);
+            if (!is_int($left)) {
+                throw new \Exception('bitwise or | left can only be int');
+            }
+            $right = executeAST($ast[2], $context);
+            if (!is_int($right)) {
+                throw new \Exception('bitwise or | right can only be int');
+            }
+            return $left | $right;
+        case '^':
+            $left = executeAST($ast[1], $context);
+            if (!is_int($left)) {
+                throw new \Exception('bitwise xor ^ left can only be int');
+            }
+            $right = executeAST($ast[2], $context);
+            if (!is_int($right)) {
+                throw new \Exception('bitwise xor ^ right can only be int');
+            }
+            return $left ^ $right;
+        case '&&':
+            $left = executeAST($ast[1], $context);
+            if ($left) {
+                $right = executeAST($ast[2], $context);
+                return $right;
+            }
+            return $left;
+        case '||':
+            $left = executeAST($ast[1], $context);
+            if ($left) {
+                return $left;
+            }
+            $right = executeAST($ast[2], $context);
+            return $right;
+        default:
+            throw new \Exception('unknown ast type');
+    }
+    throw new \Exception('impossible');
+}

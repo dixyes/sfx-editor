@@ -24,6 +24,7 @@ require_once __DIR__ . '/utilFunctions.php';
  * var := '$data' / '$rem' / '$off' / '$this->' IDENT
  * 
  * @todo 改一下tokenizer来实现能看的报错
+ * @todo 写个脚本自动从PEG生成代码
  */
 final class ConditionParse
 {
@@ -35,8 +36,7 @@ final class ConditionParse
     private function __construct(
         private string $cond,
         private Iterable $tokens,
-    )
-    {
+    ) {
         reset($this->tokens);
         $this->nextToken();
     }
@@ -56,7 +56,7 @@ final class ConditionParse
             return;
         }
         next($this->tokens);
-        var_dump($this->token);
+        // var_dump($this->token);
     }
 
     /**
@@ -303,12 +303,12 @@ final class ConditionParse
      */
     function value(): ?array
     {
-        if (in_array($this->token['type'] ,['number','string'])) {
+        if (in_array($this->token['type'], ['number', 'string'])) {
             $ret = ['val', $this->token['value']];
             $this->nextToken();
             return $ret;
-        } else if (in_array($this->token['type'] ,['true','false'])) {
-            $ret = ['val', (boolean)$this->token['type']];
+        } else if (in_array($this->token['type'], ['true', 'false'])) {
+            $ret = ['val', (bool)$this->token['type']];
             $this->nextToken();
             return $ret;
         } else if (($ret = $this->var())) {
