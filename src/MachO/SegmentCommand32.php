@@ -4,16 +4,10 @@ declare(strict_types=1);
 
 namespace MachO;
 
-use Unpacker\Unpacker;
 use Unpacker\PackItem;
-use Unpacker\CommonPack;
-use Unpacker\NullVerifier;
 
-class SegmentCommand32 implements CommonPack
+class SegmentCommand32 extends LoadCommand
 {
-    use Unpacker;
-    use NullVerifier;
-
     /** @var int $cmd LC_SEGMENT 0x1 */
     #[PackItem(offset: 0x00, type: 'uint32')]
     public int $cmd;

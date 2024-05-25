@@ -53,21 +53,9 @@ class MachOHeader implements CommonPack
         $this->loadCommands = [];
         $remaining = substr($data, $consume);
         for ($i = 0; $i < $this->nCmds; $i++) {
-            $cmdType = unpack('V', substr($remaining, 0, 4))[1];
-            switch ($cmdType) {
-                case static::LC_SEGMENT:
-                    $cmd = new SegmentCommand32();
-                    break;
-                case static::LC_SEGMENT_64:
-                    $cmd = new SegmentCommand64();
-                    break;
-                default:
-                    $cmd = new DummyCommand();
-            }
-            $consume = $cmd->unpack($remaining);
+            $cmd = LoadCommand::fromData($remaining);
+            $remaining = substr($remaining, $cmd->cmdSize);
             $this->loadCommands[] = $cmd;
-            $remaining = substr($remaining, $consume);
-            // printf("parsed %d remaining %d\n",strlen($data) - strlen($remaining), strlen($remaining));
         }
         return strlen($data) - strlen($remaining);
     }
