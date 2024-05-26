@@ -73,6 +73,8 @@ class MachOFile implements CommonPack
             }
         }
 
+        $fileEnd = $cmd->fileOffset + $cmd->fileSize;
+
         if ($cmd === null) {
             throw new \Exception('no __LINKEDIT segment found');
         }
@@ -82,6 +84,7 @@ class MachOFile implements CommonPack
             $payloadPadding = static::LINKEDIT_FILE_ALIGN - ($cmd->fileSize % static::LINKEDIT_FILE_ALIGN);
             $cmd->fileSize += $payloadPadding;
         }
+        $appendSize = strlen($this->payload) + $payloadPadding;
 
         $cmd->vmSize = $cmd->fileSize;
         if ($cmd->vmSize % static::LINKEDIT_VM_ALIGN !== 0) {
@@ -89,5 +92,21 @@ class MachOFile implements CommonPack
         }
         $this->segments[count($this->segments) - 1] .= $this->payload . str_repeat("\0", $payloadPadding);
         $this->payload = null;
+
+        foreach ($this->header->loadCommands as $cmd) {
+            if ($cmd instanceof SymbolTableCommand) {
+                break;
+            }
+        }
+
+        if ($cmd === null) {
+            throw new \Exception('no symtab segment found');
+        }
+        if ($cmd->stringOff + $cmd->stringSize != $fileEnd) {
+            // TODO: handle this case
+            throw new \Exception('symtab string table not at end of __LINKEDIT');
+        }
+
+        $cmd->stringSize += $appendSize;
     }
 }
