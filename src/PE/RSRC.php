@@ -24,8 +24,7 @@ class RSRC implements CommonPack
 
     public function __construct(
         public int $baseRVA
-    ) {
-    }
+    ) {}
 
     private function unpackDir(string $rsrc, int $offset): ResourceDirectory
     {
@@ -88,18 +87,18 @@ class RSRC implements CommonPack
         /*
          * | root | lv1 dir ... (order by entry id) | lv2 dir ... | data dir ... | name string ... | data ... |
          */
-        // reorder
         $dirs = [$this->dirs[0]];
         $dirOffset = 0;
         $dirOffsets = [];
 
+        // reorder
         $dataEntries = [];
         for ($i = 0; $i < count($dirs); $i++) {
             $dir = $dirs[$i];
             $dir->resum(0);
             $dirOffsets[] = $dirOffset;
             $dirOffset += 16 + $dir->numberOfNamedEntries * 8 + $dir->numberOfIdEntries * 8;
-            usort($dir->entries, fn ($a, $b) => $a->nameOrId - $b->nameOrId);
+            usort($dir->entries, fn($a, $b) => $a->nameOrId - $b->nameOrId);
             foreach ($dir->entries as $entry) {
                 if ($entry->item instanceof ResourceDirectory && !in_array($entry->item, $dirs)) {
                     $dirs[] = $entry->item;
@@ -114,6 +113,8 @@ class RSRC implements CommonPack
         // assert count($dirs) === count($this->dirs)
         $rsrc = '';
 
+        // pack entries
+        $dataOffset = (count($this->dirs) * 16) + (count($this->dataEntries) * 16) + (count($this->dirEntries) * 8);
         foreach ($dirs as $dir) {
             $rsrc .= $dir->pack();
             foreach ($dir->entries as $entry) {
@@ -122,20 +123,15 @@ class RSRC implements CommonPack
                 } else {
                     $entry->offsetToData = $dirOffset + array_search($entry->item, $dataEntries) * 16;
                 }
-                $rsrc .= $entry->pack();
-            }
-        }
-
-        $dataOffset = strlen($rsrc) + count($dataEntries) * 16;
-        foreach ($dirs as $dir) {
-            foreach ($dir->entries as $entry) {
                 if ($entry->nameOrId & 0x80000000) {
                     $entry->nameOrId = 0x80000000 | $dataOffset;
                     $dataOffset += 2 + strlen($entry->name);
                 }
+                $rsrc .= $entry->pack();
             }
         }
 
+        // pack data
         $data = '';
         foreach ($dataEntries as $dataEntry) {
             $dataEntry->dataRVA = $this->baseRVA + $dataOffset;
@@ -150,6 +146,7 @@ class RSRC implements CommonPack
             }
         }
 
+        // pack names
         foreach ($dirs as $dir) {
             foreach ($dir->entries as $entry) {
                 if ($entry->nameOrId & 0x80000000) {
