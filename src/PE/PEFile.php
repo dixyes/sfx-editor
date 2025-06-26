@@ -339,14 +339,20 @@ class PEFile implements CommonPack
      * fix micro specific resource data
      *
      * @param integer|null $offset if not set, it uses ending of the last section
+     * @param integer|null $length if set with $offset, it will use [$offset, $offset + $length] as the payload
      * @return void
      */
-    public function fixRSRC(?int $offset = null): void
+    public function fixRSRC(?int $offset = null, ?int $length = null): void
     {
         $this->makeLastOnlyRSRC();
         if ($offset === null) {
             $lastSection = $this->sectionHeaders[count($this->sectionHeaders) - 1];
             $offset = $lastSection->pointerToRawData + $lastSection->sizeOfRawData;
+        }
+        if ($length === null) {
+            $limit = 0;
+        } else {
+            $limit = $offset + $length;
         }
         foreach ($this->sectionHeaders as $sectionHeader) {
             if ($sectionHeader->name !== ".rsrc\0\0\0") {
@@ -354,14 +360,81 @@ class PEFile implements CommonPack
             }
             $rsrc = new RSRC($sectionHeader->virtualAddress);
             $rsrc->unpack($sectionHeader->sectionData);
-            foreach ($rsrc->dirEntries as $entry) {
+            $rcdataEntry = null;
+            $entryFixed = false;
+            foreach ($rsrc->dirs[0]->entries as $entry) {
+                if ($entry->nameOrId == 10 /* RT_RCDATA resource id 10 */) {
+                    $rcdataEntry = $entry;
+                }
+            }
+            if ($rcdataEntry === null) {
+                // create rcdata
+                $rcdataEntry = new ResourceDirectoryEntry();
+                $rsrc->dirs[0]->entries[] = $rcdataEntry; // add to the root dir
+                $rcdataEntry->nameOrId = 10;
+                $rcdataEntry->offsetToData = 0x80000000; {
+                    // dir
+                    $rcdataDir = new ResourceDirectory();
+                    $rcdataEntry->item = $rcdataDir;
+                    $rsrc->dirs[] = $rcdataDir;
+                    $rcdataDir->characteristics = 0;
+                    $rcdataDir->timeDateStamp = 0;
+                    $rcdataDir->majorVersion = 4;
+                    $rcdataDir->minorVersion = 0;
+                    $rcdataDir->numberOfNamedEntries = 0;
+                    $rcdataDir->numberOfIdEntries = 0;
+                    $rcdataDir->entries = [];
+                }
+            }
+            foreach ($rcdataEntry->item->entries as $entry) {
                 if ($entry->nameOrId != 12345 /* micro specific RC_DATA id for sfx length */) {
                     continue;
                 }
-                $sfxLen = $offset;
-                $entry->item->entries[0]->item->data = pack('V', $sfxLen);
+                $entryFixed = true;
+                // for older version of micro, only offset supported
+                $entry->item->entries[0]->item->data = pack('V', $offset);
                 $entry->item->entries[0]->item->size = 4;
                 break;
+            }
+            if (!$entryFixed) {
+                // for newer version of micro, it may not have the sfx length entry
+                $sizeOffsetDirEntry = new ResourceDirectoryEntry();
+                $rsrc->dirEntries[] = $sizeOffsetDirEntry;
+                $rcdataDir->entries[] = $sizeOffsetDirEntry; // add to the root dir
+                $rcdataDir->numberOfIdEntries += 1;
+                $sizeOffsetDirEntry->nameOrId = 12345;
+                $sizeOffsetDirEntry->offsetToData = 0x80000000 /* is dir */; {
+                    // language dir
+                    $sizeOffsetDir = new ResourceDirectory(); // dir
+                    $rsrc->dirs[] = $sizeOffsetDir;
+                    $sizeOffsetDirEntry->item = $sizeOffsetDir;
+                    $sizeOffsetDir->characteristics = 0;
+                    $sizeOffsetDir->timeDateStamp = 0;
+                    $sizeOffsetDir->majorVersion = 4;
+                    $sizeOffsetDir->minorVersion = 0;
+                    $sizeOffsetDir->numberOfNamedEntries = 0;
+                    $sizeOffsetDir->numberOfIdEntries = 0;
+                    $sizeOffsetDir->entries = []; {
+                        // en-us dir entry
+                        $enUsDir = new ResourceDirectoryEntry(); // dir
+                        $rsrc->dataEntries[] = $enUsDir;
+                        $sizeOffsetDir->entries[] = $enUsDir;
+                        $sizeOffsetDir->numberOfIdEntries += 1;
+                        $enUsDir->nameOrId = 0x0409;
+                        $enUsDir->offsetToData = 0; // is data
+                        {
+                            // data
+                            $sizeOffsetEntry = new ResourceDataEntry();
+                            $rsrc->dataEntries[] = $sizeOffsetEntry;
+                            $enUsDir->item = $sizeOffsetEntry;
+                            $sizeOffsetEntry->codepage = 0x04e4;
+                            // for newer version of micro, it uses u64 for offset and limit
+                            $sizeOffsetEntry->data = pack('JJ', $offset, $limit);
+                            $sizeOffsetEntry->size = 8;
+                            $sizeOffsetEntry->reserved = 0;
+                        }
+                    }
+                }
             }
             $rsrcData = $rsrc->pack();
             $rsrcLen = strlen($rsrcData);
@@ -402,7 +475,7 @@ class PEFile implements CommonPack
         }
         if ($fixRSRC) {
             // then change it to payload start
-            $this->fixRSRC($lastSection->pointerToRawData + $lastSection->sizeOfRawData + $payloadPaddingLen);
+            $this->fixRSRC($lastSection->pointerToRawData + $lastSection->sizeOfRawData + $payloadPaddingLen, $payloadLen);
         }
 
         $section = new SectionHeader();

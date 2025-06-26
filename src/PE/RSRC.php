@@ -130,6 +130,7 @@ class RSRC implements CommonPack
         foreach ($dirs as $dir) {
             foreach ($dir->entries as $entry) {
                 if ($entry->nameOrId & 0x80000000) {
+                    $entry->nameOrId = 0x80000000 | $dataOffset;
                     $dataOffset += 2 + strlen($entry->name);
                 }
             }
