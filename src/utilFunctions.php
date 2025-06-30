@@ -141,3 +141,12 @@ function unicode2utf8(int $codepoint): string
             chr(0x80 | ($codepoint & 0x3f));
     }
 }
+
+function paddingLength(int $offset, int $length): int
+{
+    if ($offset % $length === 0) {
+        return 0;
+    } else {
+        return $length - ($offset % $length);
+    }
+}
