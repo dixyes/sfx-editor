@@ -113,7 +113,16 @@ class RSRC implements CommonPack
             $dir->resum(0);
             $dirOffsets[] = $dirOffset;
             $dirOffset += 16 + $dir->numberOfNamedEntries * 8 + $dir->numberOfIdEntries * 8;
-            usort($dir->entries, fn($a, $b) => $a->nameOrId - $b->nameOrId);
+            $cmp = function ($a, $b) {
+                // named entry always before id entry
+                if (($a->nameOrId & 0x80000000) && !($b->nameOrId & 0x80000000)) {
+                    return -1;
+                } else if (!($a->nameOrId & 0x80000000) && ($b->nameOrId & 0x80000000)) {
+                    return 1;
+                }
+                return $a->nameOrId - $b->nameOrId;
+            };
+            usort($dir->entries, $cmp);
             foreach ($dir->entries as $entry) {
                 if ($entry->item instanceof ResourceDirectory && !in_array($entry->item, $dirs)) {
                     $dirs[] = $entry->item;
