@@ -363,7 +363,7 @@ class PEFile implements CommonPack
             $rcdataEntry = null;
             $entryFixed = false;
             foreach ($rsrc->dirs[0]->entries as $entry) {
-                if ($entry->nameOrId == 10 /* RT_RCDATA resource id 10 */) {
+                if ($entry->nameOrId == RSRC::RT_RCDATA) {
                     $rcdataEntry = $entry;
                 }
             }

@@ -11,6 +11,21 @@ use Unpacker\NullVerifier;
 
 class RSRC implements CommonPack
 {
+    const RT_CURSOR = 1;
+    const RT_BITMAP = 2;
+    const RT_ICON = 3;
+    const RT_MENU = 4;
+    const RT_DIALOG = 5;
+    const RT_STRING = 6;
+    const RT_FONTDIR = 7;
+    const RT_FONT = 8;
+    const RT_ACCELERATOR = 9;
+    const RT_RCDATA = 10;
+    const RT_MESSAGETABLE = 11;
+    const RT_GROUP_CURSOR = 12;
+    const RT_GROUP_ICON = 13;
+    const RT_VERSION = 16;
+
     use NullVerifier;
 
     /** @var array<ResourceDirectory> */
