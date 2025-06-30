@@ -415,12 +415,12 @@ class PEFile implements CommonPack
                     $sizeOffsetDir->numberOfNamedEntries = 0;
                     $sizeOffsetDir->numberOfIdEntries = 0;
                     $sizeOffsetDir->entries = []; {
-                        // en-us dir entry
+                        // LANG_NEUTRAL dir entry
                         $enUsDir = new ResourceDirectoryEntry(); // dir
                         $rsrc->dataEntries[] = $enUsDir;
                         $sizeOffsetDir->entries[] = $enUsDir;
                         $sizeOffsetDir->numberOfIdEntries += 1;
-                        $enUsDir->nameOrId = 0x0409;
+                        $enUsDir->nameOrId = 0;
                         $enUsDir->offsetToData = 0; // is data
                         {
                             // data
