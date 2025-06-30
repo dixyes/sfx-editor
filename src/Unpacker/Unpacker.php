@@ -286,12 +286,19 @@ trait Unpacker
                         $cursor += $size;
                         break;
                     default:
-                        throw new \Exception(sprintf(
-                            "Invalid type %s on unpacking %s::%s",
-                            $arg['type'],
-                            static::class,
-                            $propName,
-                        ));
+                        // for nested class
+                        $class = new ReflectionClass($prop->getType()->getName());
+                        $obj = $class->newInstanceArgs($arg['args'] ?? []);
+                        $consumed = $obj->unpack(substr($remaining, $cursor));
+                        $cursor += $consumed;
+                        $value = $obj;
+                        break;
+                        // throw new \Exception(sprintf(
+                        //     "Invalid type %s on unpacking %s::%s",
+                        //     $arg['type'],
+                        //     static::class,
+                        //     $propName,
+                        // ));
                 }
 
                 // var_dump($propName, $value);
@@ -368,12 +375,17 @@ trait Unpacker
                         }
                         break;
                     default:
-                        throw new \Exception(sprintf(
-                            "Invalid type %s on packing %s::%s",
-                            $arg['type'],
-                            static::class,
-                            $prop->getName(),
-                        ));
+                        // for nested class
+                        $value = $value->pack();
+                        $valueLength = strlen($value);
+                        $packArgs .= "a{$valueLength}";
+                        break;
+                        // throw new \Exception(sprintf(
+                        //     "Invalid type %s on packing %s::%s",
+                        //     $arg['type'],
+                        //     static::class,
+                        //     $prop->getName(),
+                        // ));
                 }
                 $values[] = $value;
             }
