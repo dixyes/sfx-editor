@@ -261,6 +261,18 @@ trait Unpacker
                                 $size = 8;
                                 $unpackArg = "P";
                                 break;
+                            case "uint16be":
+                                $size = 2;
+                                $unpackArg = "n";
+                                break;
+                            case "uint32be":
+                                $size = 4;
+                                $unpackArg = "N";
+                                break;
+                            case "uint64be":
+                                $size = 8;
+                                $unpackArg = "J";
+                                break;
                             default:
                                 throw new \Exception(sprintf(
                                     "Invalid type %s on unpacking %s::%s",
@@ -364,6 +376,15 @@ trait Unpacker
                                 break;
                             case "uint64":
                                 $packArgs .= "P";
+                                break;
+                            case "uint16be":
+                                $packArgs .= "n";
+                                break;
+                            case "uint32be":
+                                $packArgs .= "N";
+                                break;
+                            case "uint64be":
+                                $packArgs .= "J";
                                 break;
                             default:
                                 throw new \Exception(sprintf(

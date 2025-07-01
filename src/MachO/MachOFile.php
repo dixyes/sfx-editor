@@ -18,10 +18,10 @@ class MachOFile implements CommonPack
 
     public ?string $payload = null;
 
-    public function unpack(string $data): int
+    public function unpack(string $remaining): int
     {
         $header = new MachOHeader();
-        $consume = $header->unpack($data);
+        $consume = $header->unpack($remaining);
         $header->verify();
         // $remaining = substr($data, $consume);
         $this->header = $header;
@@ -31,7 +31,7 @@ class MachOFile implements CommonPack
         foreach ($header->loadCommands as $cmd) {
             if ($cmd instanceof SegmentCommand64 || $cmd instanceof SegmentCommand32) {
                 // printf("%0.16s: %08x %08x %08x %08x\n", $cmd->name, $cmd->fileOffset, $cmd->fileSize, $cmd->vmAddr, $cmd->vmSize);
-                $segments[] = substr($data, $cmd->fileOffset, $cmd->fileSize);
+                $segments[] = substr($remaining, $cmd->fileOffset, $cmd->fileSize);
                 $machoLength = max($machoLength, $cmd->fileOffset + $cmd->fileSize);
             }
             // printf("%08x\n", $cmd->cmd);
@@ -39,11 +39,12 @@ class MachOFile implements CommonPack
 
         $this->segments = $segments;
         $this->payload = null;
-        if ($machoLength !== strlen($data)) {
-            $this->payload = substr($data, $machoLength);
+        if ($machoLength !== strlen($remaining)) {
+            $this->payload = substr($remaining, $machoLength);
         }
 
-        return strlen($data);
+        // always consume the whole remaining data
+        return strlen($remaining);
     }
 
     public function pack(): string

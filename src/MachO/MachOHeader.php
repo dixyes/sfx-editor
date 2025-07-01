@@ -47,17 +47,18 @@ class MachOHeader implements CommonPack
 
     public array $loadCommands;
 
-    public function unpack(string $data): int
+    public function unpack(string $remaining): int
     {
-        $consume = $this->_unpack($data);
+        $consume = $this->_unpack($remaining);
         $this->loadCommands = [];
-        $remaining = substr($data, $consume);
+        $remaining = substr($remaining, $consume);
         for ($i = 0; $i < $this->nCmds; $i++) {
             $cmd = LoadCommand::fromData($remaining);
             $remaining = substr($remaining, $cmd->cmdSize);
+            $consume += $cmd->cmdSize;
             $this->loadCommands[] = $cmd;
         }
-        return strlen($data) - strlen($remaining);
+        return $consume;
     }
 
     public function pack(): string
