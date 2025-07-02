@@ -25,6 +25,13 @@ class RSRC implements CommonPack
     const RT_GROUP_CURSOR = 12;
     const RT_GROUP_ICON = 13;
     const RT_VERSION = 16;
+    const RT_DLGINCLUDE = 17;
+    const RT_PLUGPLAY = 19;
+    const RT_VXD = 20;
+    const RT_ANICURSOR = 21;
+    const RT_ANIICON = 22;
+    const RT_HTML = 23;
+    const RT_MANIFEST = 24;
 
     use NullVerifier;
 
