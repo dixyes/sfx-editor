@@ -7,12 +7,12 @@ this is sfx editor for micro, but also a (not very) pure PHP PE/ELF/Mach-O parse
 - [x] PE/COFF parser/builder
 - [x] .rsrc parser/builder
 - [ ] ELF parser/builder
-- [ ] Mach-O parser/builder
+- [x] Mach-O parser/builder
 - [ ] functions
-  - [ ] fix offset (for UPX things)
-  - [ ] wrap payload
+  - [x] fix offset (for UPX things)
+  - [x] wrap payload
   - [ ] icon replace
-  - [ ] Mach-O fat binary (maybe)
+  - [x] Mach-O fat binary (maybe)
 - [ ] UI
   - [ ] CLI
   - [ ] GUI
@@ -21,6 +21,8 @@ this is sfx editor for micro, but also a (not very) pure PHP PE/ELF/Mach-O parse
 ## Usage
 
 TODO
+
+See [examples](examples) before I fill this.
 
 ## License
 

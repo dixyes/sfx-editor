@@ -11,8 +11,8 @@ micro的sfx编辑器，也是不太纯PHP的PE ELF和Mach-O parser/builder
 - [ ] 功能们
   - [x] 文件大小修正（修正upx后的sfx）
   - [x] 包裹payload（给数字签名用的）
-  - [x] 替换图标
-  - [ ] Mach-O胖二进制（可能会做吧，感觉需求不大）
+  - [ ] 替换图标
+  - [x] Mach-O胖二进制（可能会做吧，感觉需求不大）
 - [ ] UI
   - [ ] CLI
   - [ ] GUI
@@ -21,6 +21,8 @@ micro的sfx编辑器，也是不太纯PHP的PE ELF和Mach-O parser/builder
 ## 用法
 
 TODO
+
+在我写之前可以见[examples](examples)
 
 ## License
 
