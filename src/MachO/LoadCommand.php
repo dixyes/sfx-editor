@@ -16,6 +16,7 @@ abstract class LoadCommand implements CommonPack
 
     const LC_SEGMENT = 0x01;
     const LC_SYMTAB = 0x02;
+    const LC_UNIXTHREAD = 0x05;
     const LC_DYSYMTAB = 0x0B;
     const LC_ID_DYLINKER = 0x0E;
     const LC_LOAD_DYLINKER = 0x0F;
@@ -32,6 +33,7 @@ abstract class LoadCommand implements CommonPack
     const LC_SOURCE_VERSION = 0x2a;
     const LC_DYLIB_CODE_SIGN_DRS = 0x2B;
     const LC_LINKER_OPTIMIZATION_HINT = 0x2E;
+    const LC_NOTE = 0x31;
     const LC_BUILD_VERSION = 0x32;
     const LC_DYLD_EXPORTS_TRIE = 0x80000033;
     const LC_DYLD_CHAINED_FIXUPS = 0x80000034;
@@ -39,7 +41,7 @@ abstract class LoadCommand implements CommonPack
     public int $cmd;
     public int $cmdSize;
 
-    static function fromData(string $data): static
+    static function fromData(string $data, int $cpuType): static
     {
         $type = unpack('V', $data)[1];
         switch ($type) {
@@ -82,6 +84,24 @@ abstract class LoadCommand implements CommonPack
                 break;
             case self::LC_SOURCE_VERSION:
                 $cmd = new SourceVersionCommand();
+                break;
+            case self::LC_NOTE:
+                $cmd = new NoteCommand();
+                break;
+            case self::LC_UNIXTHREAD:
+                switch ($cpuType) {
+                    case MachOHeader::CPU_TYPE_X86:
+                        $cmd = new UnixThreadCommandX86();
+                        break;
+                    case MachOHeader::CPU_TYPE_X86_64:
+                        $cmd = new UnixThreadCommandX86_64();
+                        break;
+                    case MachOHeader::CPU_TYPE_ARM64:
+                        $cmd = new UnixThreadCommandArm64();
+                        break;
+                    default:
+                        throw new \Exception("Unsupported CPU type: $cpuType");
+                }
                 break;
             case self::LC_BUILD_VERSION:
                 $cmd = new BuildVersionCommand();
