@@ -38,4 +38,21 @@ class SegmentCommand64 extends LoadCommand
 
     #[PackItem(offset: 0x48, type: 'SegmentSection64[]', size: '$this->nSections')]
     public array $sections;
+
+    static public function createEmpty(): static
+    {
+        $segment = new static();
+        $segment->cmd = MachOHeader::LC_SEGMENT_64;
+        $segment->cmdSize = 0x48;
+        $segment->vmAddr = 0;
+        $segment->vmSize = 0;
+        $segment->fileOffset = 0;
+        $segment->fileSize = 0;
+        $segment->maxProtect = 0;
+        $segment->initProtect = 0;
+        $segment->nSections = 0;
+        $segment->flags = 0;
+        $segment->sections = [];
+        return $segment;
+    }
 }

@@ -39,4 +39,19 @@ class SegmentSection32 implements CommonPack
     public int $reserved1;
     #[PackItem(offset: 0x40, type: 'uint32')]
     public int $reserved2;
+
+    static public function createEmpty(): static
+    {
+        $section = new static();
+        $section->addr = 0;
+        $section->size = 0;
+        $section->offset = 0;
+        $section->align = 0;
+        $section->relOff = 0;
+        $section->nReloc = 0;
+        $section->flags = 0;
+        $section->reserved1 = 0;
+        $section->reserved2 = 0;
+        return $section;
+    }
 }

@@ -17,10 +17,17 @@ class MachOHeader implements CommonPack
     }
     use NullVerifier;
 
+    const MH_MAGIC = 0xfeedface;
+    const MH_CIGAM = 0xcefaedfe;
     const MH_MAGIC_64 = 0xfeedfacf;
     const MH_CIGAM_64 = 0xcffaedfe;
 
+    const MH_OBJECT = 0x1;
+    const MH_EXECUTE = 0x2;
+    const MH_FILESET = 0xc;
+
     const CPU_TYPE_X86 = 0x07;
+    const CPU_TYPE_MIPS = 0x08;
     const CPU_TYPE_X86_64 = 0x01000007;
     const CPU_TYPE_ARM = 0x0C;
     const CPU_TYPE_ARM64 = 0x0100000C;
@@ -45,6 +52,9 @@ class MachOHeader implements CommonPack
     #[PackItem(offset: 0x1c, type: 'uint32', cond: '$this->cpuType & 0x01000000')]
     public int $reserved;
 
+    /**
+     * @var LoadCommand[]
+     */
     public array $loadCommands;
 
     public function unpack(string $remaining): int
@@ -53,7 +63,7 @@ class MachOHeader implements CommonPack
         $this->loadCommands = [];
         $remaining = substr($remaining, $consume);
         for ($i = 0; $i < $this->nCmds; $i++) {
-            $cmd = LoadCommand::fromData($remaining);
+            $cmd = LoadCommand::fromData($remaining, $this->cpuType);
             $remaining = substr($remaining, $cmd->cmdSize);
             $consume += $cmd->cmdSize;
             $this->loadCommands[] = $cmd;
