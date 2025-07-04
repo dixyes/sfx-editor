@@ -244,42 +244,14 @@ trait Unpacker
                     case $prop->getType()->getName() === "int":
                         $size = 0;
                         $unpackArg = "";
-                        switch ($arg['type']) {
-                            case "uint8":
-                                $size = 1;
-                                $unpackArg = "C";
-                                break;
-                            case "uint16":
-                                $size = 2;
-                                $unpackArg = "v";
-                                break;
-                            case "uint32":
-                                $size = 4;
-                                $unpackArg = "V";
-                                break;
-                            case "uint64":
-                                $size = 8;
-                                $unpackArg = "P";
-                                break;
-                            case "uint16be":
-                                $size = 2;
-                                $unpackArg = "n";
-                                break;
-                            case "uint32be":
-                                $size = 4;
-                                $unpackArg = "N";
-                                break;
-                            case "uint64be":
-                                $size = 8;
-                                $unpackArg = "J";
-                                break;
-                            default:
-                                throw new \Exception(sprintf(
-                                    "Invalid type %s on unpacking %s::%s",
-                                    $arg['type'],
-                                    static::class,
-                                    $propName,
-                                ));
+                        $packArg = ctypenameToPackArg($arg['type']);
+                        if ($packArg === null) {
+                            throw new \Exception(sprintf(
+                                "Invalid type %s on unpacking %s::%s",
+                                $arg['type'],
+                                static::class,
+                                $propName,
+                            ));
                         }
 
                         if ($cursor + $size > strlen($remaining)) {
@@ -364,36 +336,17 @@ trait Unpacker
                         $packArgs .= sprintf("a%d", strlen($value));
                         break;
                     case $prop->getType()->getName() === "int":
-                        switch ($arg['type']) {
-                            case "uint8":
-                                $packArgs .= "C";
-                                break;
-                            case "uint16":
-                                $packArgs .= "v";
-                                break;
-                            case "uint32":
-                                $packArgs .= "V";
-                                break;
-                            case "uint64":
-                                $packArgs .= "P";
-                                break;
-                            case "uint16be":
-                                $packArgs .= "n";
-                                break;
-                            case "uint32be":
-                                $packArgs .= "N";
-                                break;
-                            case "uint64be":
-                                $packArgs .= "J";
-                                break;
-                            default:
-                                throw new \Exception(sprintf(
-                                    "Invalid type %s on packing %s::%s",
-                                    $arg['type'],
-                                    static::class,
-                                    $prop->getName(),
-                                ));
+                        $packArg = ctypenameToPackArg($arg['type']);
+                        if ($packArg === null) {
+                            throw new \Exception(sprintf(
+                                "Invalid type %s on packing %s::%s",
+                                $arg['type'],
+                                static::class,
+                                $prop->getName(),
+                            ));
                         }
+                        [$_, $packArg] = $packArg;
+                        $packArgs .= $packArg;
                         break;
                     default:
                         // for nested class

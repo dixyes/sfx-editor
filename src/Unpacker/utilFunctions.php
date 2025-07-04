@@ -464,3 +464,43 @@ function executeAST(array $ast, array $context): mixed
     }
     throw new \Exception('impossible');
 }
+
+function ctypenameToPackArg(string $type): ?array
+{
+    switch ($type) {
+        case "uint8":
+            $size = 1;
+            $unpackArg = "C";
+            break;
+        case "uint16":
+            $size = 2;
+            $unpackArg = "v";
+            break;
+        case "uint32":
+            $size = 4;
+            $unpackArg = "V";
+            break;
+        case "uint64":
+            $size = 8;
+            $unpackArg = "P";
+            break;
+        case "uint16be":
+            $size = 2;
+            $unpackArg = "n";
+            break;
+        case "uint32be":
+            $size = 4;
+            $unpackArg = "N";
+            break;
+        case "uint64be":
+            $size = 8;
+            $unpackArg = "J";
+            break;
+        default:
+            return null;
+    }
+    return [
+        $size,
+        $unpackArg,
+    ];
+}
