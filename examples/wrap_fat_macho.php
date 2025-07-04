@@ -6,7 +6,7 @@ require_once __DIR__ . '/../autoload.php';
 $fatFile = file_get_contents('micro.sfx.universal');
 
 // add payload
-$fatFile .= "text<?php echo 'hello'; ?>end";
+$fatFile .= "<?php echo 'hello from ' . php_uname('m') . PHP_EOL;";
 
 // unpack fat mach-o
 $fat = new \MachO\FatMachO();
