@@ -39,6 +39,4 @@ class SegmentSection32 implements CommonPack
     public int $reserved1;
     #[PackItem(offset: 0x40, type: 'uint32')]
     public int $reserved2;
-    #[PackItem(offset: 0x44, type: 'uint32')]
-    public int $reserved3;
 }
