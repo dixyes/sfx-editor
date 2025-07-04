@@ -21,7 +21,7 @@ class FatMachO implements CommonPack
         pack as _pack;
     }
 
-    #[PackItem(offset: 0x00, type: 'uint32')]
+    #[PackItem(offset: 0x00, type: 'uint32be')]
     public int $magic;
     #[PackItem(offset: 0x04, type: 'uint32be')]
     public int $nArchs;

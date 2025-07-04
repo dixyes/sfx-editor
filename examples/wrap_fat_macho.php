@@ -3,7 +3,7 @@
 require_once __DIR__ . '/../autoload.php';
 
 // open fat mach-o
-$fatFile = file_get_contents('micro.sfx.universial');
+$fatFile = file_get_contents('micro.sfx.universal');
 
 // add payload
 $fatFile .= "text<?php echo 'hello'; ?>end";
