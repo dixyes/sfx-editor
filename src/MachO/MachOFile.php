@@ -144,8 +144,9 @@ class MachOFile implements CommonPack
      * this is for fat mach-o wrapping
      * @param int $start the start of the generated fake mach-o file
      * @param string $payload the payload to be appended to the mach-o file
+     * @param int $payloadAlign the alignment of the payload, default is 0x1000, this is for the generated mach-o file to be executable. If only signable is needed, set it to 0x10, can be any power of 2.
      */
-    static public function createFakeMachO(int $start, string $payload): static
+    static public function createFakeMachO(int $start, string $payload, int $payloadAlign = 0x1000): static
     {
         $macho = new MachOFile();
         $macho->header = new MachOHeader();
@@ -155,13 +156,25 @@ class MachOFile implements CommonPack
         $macho->header->fileType = MachOHeader::MH_EXECUTE;
         $macho->header->nCmds = 0;
         $macho->header->sizeOfCmds = 0;
-        $macho->header->flags = 0;
+        $macho->header->flags = 1 /* MH_NOUNDEFS */;
         $macho->header->loadCommands = [];
 
         [$entryAddr, $code] = static::generateFakeX86Code("This program cannot be run in i386 mode.\n", 1);
         $macho->segments = $code;
 
-        // __TEXT
+        $dataLen = (strlen($payload) + 16 + $payloadAlign - 1) & ~($payloadAlign - 1);
+
+        /**
+         * file Offset         | VMA                     | size                    | usage
+         * 0x0                 | 0x1000                  | ?                       | macho header
+         * machoHeaderLen      | 0x1000 + machoHeaderLen | ?                       | padding to text section, zeros
+         * $entryAddr - 0x1000 | $entryAddr              | ?                       | text section, code
+         * 0x1000              | 0x2000                  | 16                      | sfxsize section
+         * 0x1010              | 0x2010                  | payloadLen padto 0x1000 | payload
+         * -                   | 0                       | 0                       | __LINKEDIT
+         */
+
+        // Segment __TEXT
         {
             $segment = SegmentCommand32::createEmpty();
             $macho->header->loadCommands[] = $segment;
@@ -172,8 +185,10 @@ class MachOFile implements CommonPack
             $segment->fileOffset = 0;
             $segment->fileSize = 0x1000;
             $segment->initProtect = 0x5;
-            $segment->maxProtect = 0x7; {
-                // .text
+            $segment->maxProtect = 0x5;
+
+            // Section __text
+            {
                 $section = SegmentSection32::createEmpty();
                 $segment->sections[] = $section;
                 $segment->nSections++;
@@ -184,14 +199,71 @@ class MachOFile implements CommonPack
                 $section->size = 0x2000 - $entryAddr;
                 $section->offset = $entryAddr - 0x1000;
                 $section->align = 2; // 4 bytes align
-                $section->relOff = 0;
-                $section->nReloc = 0;
                 $section->flags = 0x80000400;
             }
 
             $macho->header->sizeOfCmds += $segment->cmdSize;
         }
-        // TODO: add LC_SEGMENT_64 for __DATA
+        // Segment __DATA
+        {
+            $segment = SegmentCommand32::createEmpty();
+            $macho->header->loadCommands[] = $segment;
+            $macho->header->nCmds++;
+            $segment->name = "__DATA\0\0\0\0\0\0\0\0\0\0";
+            $segment->vmAddr = 0x2000;
+            $segment->vmSize = 0x1000;
+            $segment->fileOffset = 0x1000;
+            $segment->fileSize = $dataLen;
+            $segment->initProtect = 0x3;
+            $segment->maxProtect = 0x3;
+
+            // Section __micro_sfxsize
+            {
+                $section = SegmentSection32::createEmpty();
+                $segment->sections[] = $section;
+                $segment->nSections++;
+                $segment->cmdSize += 0x44 /* sizeof(SegmentSection32) */;
+                $section->name = "__micro_sfxsize\0";
+                $section->segmentName = "__DATA\0\0\0\0\0\0\0\0\0\0";
+                $section->addr = 0x2000;
+                $section->size = 16;
+                $section->offset = 0x1000;
+                $section->align = 4; // 16 bytes align
+            }
+
+            // Section __micro_payload
+            {
+                $section = SegmentSection32::createEmpty();
+                $segment->sections[] = $section;
+                $segment->nSections++;
+                $segment->cmdSize += 0x44 /* sizeof(SegmentSection32) */;
+                $section->name = "__micro_payload\0";
+                $section->segmentName = "__DATA\0\0\0\0\0\0\0\0\0\0";
+                $section->addr = 0x2010;
+                $section->size = strlen($payload);
+                $section->offset = 0x1010;
+                $section->align = 4; // 16 bytes align
+            }
+
+            $macho->header->sizeOfCmds += $segment->cmdSize;
+        }
+        // Segment __LINKEDIT
+        {
+            $segment = SegmentCommand32::createEmpty();
+            $macho->header->loadCommands[] = $segment;
+            $macho->header->nCmds++;
+            $segment->name = "__LINKEDIT\0\0\0\0\0\0";
+            // must align to 0x1000 for executable
+            $segment->vmAddr = (0x1000 + 0x1000 + $dataLen + $payloadAlign - 1) & ~($payloadAlign - 1);
+            $segment->vmSize = 0; // no data
+            // fileOffset + fileSize must align to 0x1000 (for executable) + be the file end (for signing)
+            $segment->fileOffset = 0x1000 + $dataLen;
+            $segment->fileSize = 0; // no data
+            $segment->initProtect = 0x1;
+            $segment->maxProtect = 0x1;
+
+            $macho->header->sizeOfCmds += $segment->cmdSize;
+        }
         // LC_UNIXTHREAD
         {
             $cmd = UnixThreadCommandX86::createEmpty();
@@ -207,7 +279,8 @@ class MachOFile implements CommonPack
                 $start + 0x1000 + 16,
                 $start + 0x1000 + 16 + strlen($payload),
             ) .
-            $payload;
+            $payload .
+            str_repeat("\0", $payloadAlign - ((strlen($payload) + 16) % $payloadAlign));
 
         return $macho;
     }

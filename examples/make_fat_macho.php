@@ -19,15 +19,15 @@ foreach ([$x86_64, $arm64] as $i => $macho) {
     $fat->archs[] = $arch;
     $fat->nArchs++;
 
-    // lipo use 1 << 13 (8192) for x86_64 alignment, don't know why / how to get it
-    // we use max section alignment here
-    $align = 0;
-    foreach ($macho->header->loadCommands as $cmd) {
-        if ($cmd instanceof \MachO\SegmentCommand32 || $cmd instanceof \MachO\SegmentCommand64) {
-            foreach ($cmd->sections as $section) {
-                $align = max($align, $section->align);
-            }
-        }
+    switch ($macho->header->cpuType) {
+        case \MachO\MachOHeader::CPU_TYPE_X86_64:
+            $align = 13;
+            break;
+        case \MachO\MachOHeader::CPU_TYPE_ARM64:
+            $align = 14;
+            break;
+        default:
+            throw new \Exception("Unsupported CPU type: " . $macho->header->cpuType);
     }
 
     $data = $macho->pack();

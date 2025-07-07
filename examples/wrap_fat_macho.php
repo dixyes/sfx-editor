@@ -3,10 +3,10 @@
 require_once __DIR__ . '/../autoload.php';
 
 // open fat mach-o
-$fatFile = file_get_contents('micro.sfx.universal');
+$fatFile = file_get_contents('micro.sfx.universal.signed');
 
 // add payload
-$fatFile .= "<?php echo 'hello from ' . php_uname('m') . PHP_EOL;";
+$fatFile .= "<?php echo 'hello from ' . php_uname('m') . PHP_EOL ;";
 
 // unpack fat mach-o
 $fat = new \MachO\FatMachO();

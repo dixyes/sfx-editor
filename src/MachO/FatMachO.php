@@ -25,6 +25,9 @@ class FatMachO implements CommonPack
     public int $magic;
     #[PackItem(offset: 0x04, type: 'uint32be')]
     public int $nArchs;
+    /**
+     * @var array<FatArch>
+     */
     #[PackItem(offset: 0x08, type: 'FatArch[$this->nArchs]')]
     public array $archs;
 
@@ -73,7 +76,12 @@ class FatMachO implements CommonPack
         return $data;
     }
 
-    public function wrapPayload(): void
+    /**
+     * Wrap the payload into a stub executable or a signable payload
+     * @param bool $stubExecutable if true, the payload is aligned to 0x1000 for stub runnable, otherwise it is aligned to 0x10 for signable only
+     * @param (callable(MachOFile):MachOFile)|null $signStub if provided, the stub will be signed with this function
+     */
+    public function wrapPayload(bool $stubExecutable = true, ?callable $signStub = null): void
     {
         if ($this->payload === "") {
             throw new \Exception("Payload is empty, is executable already wrapped?");
@@ -84,6 +92,19 @@ class FatMachO implements CommonPack
             // so we don't do adjust here, just throw an exception if this really happens
             throw new \Exception("Padding is too short");
         }
+
+        // find the end of the last mach-o
+        $end = 0;
+        foreach ($this->archs as $arch) {
+            $archEnd = $arch->fileOffset + $arch->size;
+            if ($archEnd > $end) {
+                $end = $archEnd;
+            }
+        }
+        // align to 0x1000
+        $fileOffset = ($end + 0xfff) & ~0xfff;
+
+        // remove arch length from the first padding
         $this->paddings[0] = substr($this->paddings[0], 0x14);
         $lastArch = $this->archs[$this->nArchs - 1];
 
@@ -94,12 +115,15 @@ class FatMachO implements CommonPack
         $payloadArch->cpuType = MachOHeader::CPU_TYPE_X86;
         $payloadArch->cpuSubtype = 0;
         $payloadArch->align = 12; // 4k page align
-        $fileOffset = $lastArch->fileOffset + $lastArch->size;
-        $fileOffset = ($fileOffset + 0xfff) & ~0xfff;
         $payloadArch->fileOffset = $fileOffset;
-        $payloadArch->size = 0x1000 + 16 + strlen($this->payload);
+        // If stubExecutable is true, the payload is aligned to 0x1000 for stub runnable
         $this->paddings[] = str_repeat("\0", $fileOffset - ($lastArch->fileOffset + $lastArch->size));
-        $this->machos[] = MachOFile::createFakeMachO($fileOffset, $this->payload);
+        $stub = MachOFile::createFakeMachO($fileOffset, $this->payload, $stubExecutable ? 0x1000 : 0x10);
+        if ($signStub) {
+            $stub = $signStub($stub);
+        }
+        $payloadArch->size = strlen($stub->pack());
+        $this->machos[] = $stub;
 
         $this->payload = "";
     }
