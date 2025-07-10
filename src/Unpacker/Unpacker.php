@@ -427,12 +427,12 @@ trait Unpacker
                     case $prop->getType()->getName() === "int":
                         $packArg = ctypenameToPackArg($arg['type']);
                         if ($packArg === null) {
-                                throw new \Exception(sprintf(
-                                    "Invalid type %s on packing %s::%s",
-                                    $arg['type'],
-                                    static::class,
-                                    $prop->getName(),
-                                ));
+                            throw new \Exception(sprintf(
+                                "Invalid type %s on packing %s::%s",
+                                $arg['type'],
+                                static::class,
+                                $prop->getName(),
+                            ));
                         }
                         [$_, $packArg] = $packArg;
                         $packArgs .= $packArg;
